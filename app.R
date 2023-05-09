@@ -83,6 +83,8 @@ storageLocations = idno2storage(storageLocations) %>%
 ui <- navbarPage(
   title = "CAS Box Updater",
 
+  id = "page",
+
   useShinyjs(),
 
   tabPanel("login",
@@ -117,6 +119,7 @@ tabPanel("main",
              column(width = 3, actionButton(inputId = "add","add"))
            )
          ),
+         fluidRow(column(width = 3,wellPanel(actionButton("deleteRow","Delete selection")))),
          DT::DTOutput(outputId = "table"),
          actionButton(inputId = "submit",label = "submit batch")
 )
@@ -201,6 +204,14 @@ server <- function(input, output, session) {
     renderText(paste("Welcome",credentials()$info$name))
   })
 
+  observeEvent(credentials()$user_auth,{
+    if(credentials()$user_auth) {
+      showTab("page","main")
+    } else {
+      hideTab("page","main")
+    }
+  })
+
   observeEvent(credentials(),{
     req(credentials()$user_auth)
     updateTextInput(session = session,inputId = "person",value = credentials()$info$name)
@@ -241,6 +252,16 @@ server <- function(input, output, session) {
 
   output$table = renderDT({
     DT::datatable(rvals$df,rownames = F)
+  })
+
+  observeEvent(input$deleteRow,{
+
+    indx = input$table_rows_selected
+
+    if(length(indx) > 0){
+    rvals$df <- tryCatch(rvals$df %>%
+      slice(-indx),error = function(e) return(rvals$df))
+    }
   })
 }
 
