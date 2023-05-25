@@ -7,6 +7,16 @@ library(janitor)
 library(readr)
 library(stringr)
 library(tidyr)
+library(rio)
+library(ssh)
+
+dir = ifelse(dir.exists("/host/usr/local/share/caFiles"),"/host/usr/local/share/caFiles","error")
+
+sshSession = ssh_connect("ca@10.126.24.122", passwd = Sys.getenv("pwd"))
+
+updateStorageLocations = function(session){
+  ssh_exec_wait(session, command = '/usr/local/share/caFiles/storageExporter.sh')
+}
 
 safeImport = function(file, ...){
   if(file.access(file, mode = 4) == 0){
@@ -61,8 +71,11 @@ idno2storage = function(df){
   return(df)
 }
 
+buildings = dplyr::tibble(building = c("Ala", "CSB", "MC", "MH"), fullBuilding = c("Alameda",
+                                                                                   "CSB", "MC", "MH"))
+
 storageLocations = read.table(
-  "/host/usr/local/share/caFiles/storageLocations.csv",
+  file.path(dir,"storageLocations.csv"),
   sep = ';',
   quote = "",
   fill = T,
@@ -79,6 +92,13 @@ storageLocations = read.table(
 
 storageLocations = idno2storage(storageLocations) %>%
   mutate_all(as.character)
+
+storageLocations = inner_join(buildings,storageLocations, by = join_by('building'), relationship = "many-to-many") %>%
+  select(-building) %>%
+  rename(building = fullBuilding)
+# setdiff(storageLocations$id,buildings$id)
+# missing = storageLocations %>% filter(!id %in% buildings$id)
+
 
 ui <- navbarPage(
   title = "CAS Box Updater",
@@ -103,7 +123,7 @@ tabPanel("main",
            fluidRow(
              column(width = 2,textInput("id","id")),
              column(width = 2,textInput("idno","idno")),
-             column(width = 2,textInput("building","building")),
+             column(width = 2,selectInput("building","building",choices = storageLocations %>% filter(type == "building") %>% pull(building) %>% unique() %>% sort %>% c("",.))),
              column(width = 2,textInput("room","room")),
              column(width = 1,textInput("row","row")),
              column(width = 1,textInput("unit","unit")),
@@ -247,7 +267,13 @@ server <- function(input, output, session) {
   })
 
   observeEvent(input$submit, {
-    showNotification("tough luck, but this doesn't do anything")
+    showNotification("submitting batch")
+
+    export(rvals$df,file.path(dir,"importBoxMoves.xlsx"))
+    rvals$df = tibble()
+    ssh_exec_wait(sshSession, command = '/usr/local/share/caFiles/boxtransferauto.sh')
+
+    showNotification("completed")
   })
 
   output$table = renderDT({
