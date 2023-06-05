@@ -101,7 +101,7 @@ storageLocations = inner_join(buildings,storageLocations, by = join_by('building
 
 
 ui <- navbarPage(
-  title = "CAS Box Updater",
+  title = "CASR Box Updater",
 
   id = "page",
 
@@ -131,7 +131,7 @@ tabPanel("main",
            ),
            fluidRow(
              column(width = 3,textInput("person","Person(s) responsible")),
-             column(width = 3,selectInput("type","type of move", choices = c("permanent","temporary"))),
+             column(width = 3,selectInput("type","type of move", choices = c("permanent","temporary","returned"))),
              column(width = 3,textInput("purpose","purpose of transfer")),
              column(width = 3,dateInput("date","date")),
            ),
