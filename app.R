@@ -18,6 +18,17 @@ updateStorageLocations = function(session){
   ssh_exec_wait(session, command = '/usr/local/share/caFiles/storageExporter.sh')
 }
 
+safeSaveRDS = function(object,file){
+  if(file.access(file, mode = 2) == 0){
+    try(saveRDS(object,file))
+  } else {
+    if (Sys.info()["sysname"] == "Linux") {
+      system(glue::glue("sudo chown shiny '{file}'"))
+    }
+    try(saveRDS(object,file))
+  }
+}
+
 safeImport = function(file, ...){
   if(file.access(file, mode = 4) == 0){
     object = tryCatch(rio::import(file, setclass = 'tibble', ...), error =  function(e) return(NULL))
@@ -112,10 +123,10 @@ ui <- navbarPage(
            div(class = "pull-right", shinyauthr::logoutUI(id = "logout")),
            div(HTML("<h3>Forgot password? Email <a href=\"mailto:rbischoff@asu.edu\">rbischoff@asu.edu</a></h3>
 "),id = "forgotPassword"),
-  actionButton("create_user", "Create user"),
-  # add login panel UI function
-  shinyauthr::loginUI(id = "login"),
-  uiOutput("welcomeUI")
+actionButton("create_user", "Create user"),
+# add login panel UI function
+shinyauthr::loginUI(id = "login"),
+uiOutput("welcomeUI")
   ),
 tabPanel("main",
          wellPanel(
@@ -146,7 +157,7 @@ tabPanel("main",
 )
 server <- function(input, output, session) {
 
-  rvals = reactiveValues(df = tibble(boxno = NA,id = NA, idno = NA, type = NA, purpose = NA, person = NA, date = NA, building = NA, room = NA, row = NA, unit = NA, shelf = NA))
+  rvals = reactiveValues(df = tibble())
 
   database = safeImport("database.Rds")
 
@@ -192,7 +203,7 @@ server <- function(input, output, session) {
     new = tibble(user = username, password = sodium::password_store(password1), permissions = "standard",name = name)
 
     databaseNew = bind_rows(database,new)
-    saveRDS(databaseNew,"database.Rds")
+    safeSaveRDS(databaseNew,"database.Rds")
 
     showNotification(sprintf("User '%s' was created successfully!\n", new$user))
     removeModal()
@@ -238,7 +249,8 @@ server <- function(input, output, session) {
   })
 
   observeEvent(input$add,{
-
+    req(input$type)
+    requiredCols = c("purpose" = NA_character_,"person" = NA_character_,"date" = NA_character_)
     inputdf = tibble(
       boxno = input$boxno,
       id = input$id,
@@ -251,19 +263,22 @@ server <- function(input, output, session) {
       type = input$type,
       purpose = input$purpose,
       person = input$person,
-      date = input$date
+      date = coalesce(input$date,NA)
     ) %>%
       mutate_at(vars(-date),str_trim) %>%
       mutate_at(vars(-date),na_if,"") %>%
+      mutate_at(vars(-date),as.character) %>%
       remove_empty("cols") %>%
-      mutate_at(vars(-date),as.character)
+      tibble::add_column(!!!requiredCols[!names(requiredCols) %in% names(.)])
     print(inputdf)
     print(dput(inputdf))
     inputdf %<>%
       inner_join(storageLocations %<>% select(-name,-parent,-type))
 
 
-    rvals$df = bind_rows(rvals$df,inputdf)
+    rvals$df = bind_rows(inputdf,rvals$df) %>%
+      distinct_all() %>%
+      select(boxno,id, idno, type, purpose, person, date, building, room, row, unit, shelf)
   })
 
   observeEvent(input$submit, {
@@ -272,7 +287,7 @@ server <- function(input, output, session) {
     export(rvals$df,file.path(dir,"importBoxMoves.xlsx"))
     rvals$df = tibble()
     ssh_exec_wait(sshSession, command = '/usr/local/share/caFiles/boxtransferauto.sh')
-
+    file.remove(file.path(dir,"importBoxMoves.xlsx"))
     showNotification("completed")
   })
 
@@ -285,8 +300,8 @@ server <- function(input, output, session) {
     indx = input$table_rows_selected
 
     if(length(indx) > 0){
-    rvals$df <- tryCatch(rvals$df %>%
-      slice(-indx),error = function(e) return(rvals$df))
+      rvals$df <- tryCatch(rvals$df %>%
+                             slice(-indx),error = function(e) return(rvals$df))
     }
   })
 }
