@@ -10,7 +10,7 @@ library(tidyr)
 library(rio)
 library(ssh)
 
-dir = ifelse(dir.exists("/host/usr/local/share/caFiles"),"/host/usr/local/share/caFiles","error")
+dir = ifelse(dir.exists("/host/usr/local/share/caFiles"),"/host/usr/local/share/caFiles","/usr/local/share/caFiles")
 
 sshSession = ssh_connect("ca@10.126.24.122", passwd = Sys.getenv("pwd"))
 
