@@ -9,21 +9,28 @@ library(stringr)
 library(tidyr)
 library(rio)
 library(ssh)
+library(DBI)
+library(dbplyr)
 
-dir = ifelse(dir.exists("/host/usr/local/share/caFiles"),"/host/usr/local/share/caFiles","/usr/local/share/caFiles")
+con = dbConnect(odbc::odbc(),
+                Driver = "MySQL ODBC 8.1 ANSI Driver",
+                Server = "10.126.24.122",
+                Database = "ca",
+                UID = Sys.getenv("uid"),
+                PWD = Sys.getenv("pwd"),
+                Port = 3306
+                )
+
+dir = "/mnt/storage/public"
 
 sshSession = ssh_connect("ca@10.126.24.122", passwd = Sys.getenv("pwd"))
-
-updateStorageLocations = function(session){
-  ssh_exec_wait(session, command = '/usr/local/share/caFiles/storageExporter.sh')
-}
 
 safeSaveRDS = function(object,file){
   if(file.access(file, mode = 2) == 0){
     try(saveRDS(object,file))
   } else {
     if (Sys.info()["sysname"] == "Linux") {
-      system(glue::glue("sudo chown shiny '{file}'"))
+      tryCatch(ssh_exec_wait(sshSession, command = glue::glue('sudo chmod +777 {file}')),error = function(e) warning(glue::glue("unable to save {file}")))
     }
     try(saveRDS(object,file))
   }
@@ -34,9 +41,15 @@ safeImport = function(file, ...){
     object = tryCatch(rio::import(file, setclass = 'tibble', ...), error =  function(e) return(NULL))
   } else {
     if (Sys.info()["sysname"] == "Linux") {
-      tryCatch(system(glue::glue("sudo chown shiny {file}")),error = function(e) return(NULL))
+      tryCatch(system(glue::glue("sudo chown shiny {file}")),error = function(e) {
+        warning(glue::glue("unable to read {file}"))
+        return(NULL)
+      })
     }
-    object = tryCatch(rio::import(file, setclass = 'tibble' ,...), error =  function(e) return(NULL))
+    object = tryCatch(rio::import(file, setclass = 'tibble' ,...), error =  function(e) {
+      warning(glue::glue("unable to read {file}"))
+      return(NULL)
+    })
   }
   return(object)
 }
@@ -54,8 +67,8 @@ storage2idno = function(df){
            unitid = str_replace_all(unitid,"across from","a"),
            unitid = str_replace_all(unitid,"Top of filing cabinets","tofc"),
            rowid = str_replace_all(rowid,"floor","fl")) %>%
-    select(-any_of(c("idno","id"))) %>%
-    unite("idno",any_of(contains("id")),sep = "_",remove = T, na.rm = T) %>%
+    select(-any_of(c("idno","barcode"))) %>%
+    unite("idno",any_of(contains("barcode")),sep = "_",remove = T, na.rm = T) %>%
     mutate(date = date %>% as.integer %>% as.Date(origin = "1899-12-30"),
            entered = T) %>%
     mutate(idno= str_replace_all(idno," ","_")) %>%
@@ -84,33 +97,6 @@ idno2storage = function(df){
 
 buildings = dplyr::tibble(building = c("Ala", "CSB", "MC", "MH"), fullBuilding = c("Alameda",
                                                                                    "CSB", "MC", "MH"))
-
-storageLocations = read.table(
-  file.path(dir,"storageLocations.csv"),
-  sep = ';',
-  quote = "",
-  fill = T,
-  header = F
-) %>%
-  mutate_all(str_remove_all,'"') %>%
-  mutate_all(str_trim) %>%
-  setNames(c('id',
-             'name',
-             'idno',
-             'parent',
-             'type'
-  ))
-
-storageLocations = idno2storage(storageLocations) %>%
-  mutate_all(as.character)
-
-storageLocations = inner_join(buildings,storageLocations, by = join_by('building'), relationship = "many-to-many") %>%
-  select(-building) %>%
-  rename(building = fullBuilding)
-# setdiff(storageLocations$id,buildings$id)
-# missing = storageLocations %>% filter(!id %in% buildings$id)
-
-
 ui <- navbarPage(
   title = "CASR Box Updater",
 
@@ -132,9 +118,9 @@ tabPanel("main",
          wellPanel(
            fluidRow(column(width = 3,textInput("boxno","boxno"))),
            fluidRow(
-             column(width = 2,textInput("id","id")),
+             column(width = 2,textInput("barcode","barcode")),
              column(width = 2,textInput("idno","idno")),
-             column(width = 2,selectInput("building","building",choices = storageLocations %>% filter(type == "building") %>% pull(building) %>% unique() %>% sort %>% c("",.))),
+             column(width = 2,selectInput("building","building",choices = buildings$fullBuilding) %>% setNames(buildings$building)),
              column(width = 2,textInput("room","room")),
              column(width = 1,textInput("row","row")),
              column(width = 1,textInput("unit","unit")),
@@ -157,7 +143,14 @@ tabPanel("main",
 )
 server <- function(input, output, session) {
 
-  rvals = reactiveValues(df = tibble())
+  # make sure directory is readable
+
+  observeEvent(input$add,{
+    ssh_exec_wait(sshSession, command = 'sudo chmod -R +777 /mnt/storage/public')
+  })
+
+  rvals = reactiveValues(df = tibble::tibble(),
+                         storageLocations = dbGetQuery(con,"select ca_storage_locations.location_id, ca_storage_locations.idno, value_longtext1 as barcode from ca_storage_locations join ca_attributes on ca_attributes.row_id = ca_storage_locations.location_id join ca_attribute_values on ca_attribute_values.attribute_id = ca_attributes.attribute_id join ca_metadata_elements on ca_metadata_elements.element_id = ca_attributes.element_id where element_code = 'barcode' and ca_storage_locations.deleted = 0") %>% idno2storage())
 
   database = safeImport("database.Rds")
 
@@ -253,7 +246,7 @@ server <- function(input, output, session) {
     requiredCols = c("purpose" = NA_character_,"person" = NA_character_,"date" = NA_character_)
     inputdf = tibble(
       boxno = input$boxno,
-      id = input$id,
+      barcode = input$barcode,
       idno = input$idno,
       building = input$building,
       room = input$room,
@@ -273,20 +266,22 @@ server <- function(input, output, session) {
     print(inputdf)
     print(dput(inputdf))
     inputdf %<>%
-      inner_join(storageLocations %<>% select(-name,-parent,-type))
+      inner_join(
+      rvals$storageLocations
+      )
 
 
     rvals$df = bind_rows(inputdf,rvals$df) %>%
       distinct_all() %>%
-      select(boxno,id, idno, type, purpose, person, date, building, room, row, unit, shelf)
+      select(boxno,barcode, location_id, idno, type, purpose, person, date, building, room, row, unit, shelf)
   })
 
   observeEvent(input$submit, {
     showNotification("submitting batch")
 
-    export(rvals$df,file.path(dir,"importBoxMoves.xlsx"))
-    rvals$df = tibble()
-    ssh_exec_wait(sshSession, command = '/usr/local/share/caFiles/boxtransferauto.sh')
+    safeSaveRDS(rvals$df,file.path(dir,"importBoxMoves.xlsx"))
+    rvals$df = tibble::tibble()
+    ssh_exec_wait(sshSession, command = paste0(dir,'/boxtransferauto.sh'))
     file.remove(file.path(dir,"importBoxMoves.xlsx"))
     showNotification("completed")
   })
