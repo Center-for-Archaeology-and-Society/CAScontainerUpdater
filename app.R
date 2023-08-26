@@ -19,7 +19,7 @@ con = dbConnect(MySQL(),
                 user = Sys.getenv("uid"),
                 password = Sys.getenv("pwd"),
                 port = 3306
-                )
+)
 
 dir = "/mnt/storage/public"
 
@@ -120,7 +120,7 @@ tabPanel("main",
            fluidRow(
              column(width = 2,textInput("barcode","barcode")),
              column(width = 2,textInput("idno","idno")),
-             column(width = 2,selectInput("building","building",choices = buildings$fullBuilding %>% setNames(buildings$building))),
+             column(width = 2,selectInput("building","building",choices = c("",buildings$fullBuilding) %>% setNames(c("",buildings$building)))),
              column(width = 2,textInput("room","room")),
              column(width = 1,textInput("row","row")),
              column(width = 1,textInput("unit","unit")),
@@ -267,7 +267,7 @@ server <- function(input, output, session) {
     print(dput(inputdf))
     inputdf %<>%
       inner_join(
-      rvals$storageLocations
+        rvals$storageLocations
       )
 
 
