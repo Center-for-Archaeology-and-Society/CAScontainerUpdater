@@ -120,7 +120,7 @@ tabPanel("main",
            fluidRow(
              column(width = 2,textInput("barcode","barcode")),
              column(width = 2,textInput("idno","idno")),
-             column(width = 2,selectInput("building","building",choices = buildings$fullBuilding) %>% setNames(buildings$building)),
+             column(width = 2,selectInput("building","building",choices = buildings$fullBuilding %>% setNames(buildings$building))),
              column(width = 2,textInput("room","room")),
              column(width = 1,textInput("row","row")),
              column(width = 1,textInput("unit","unit")),
