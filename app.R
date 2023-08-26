@@ -282,7 +282,7 @@ server <- function(input, output, session) {
     safeSaveRDS(rvals$df,file.path(dir,"importBoxMoves.xlsx"))
     rvals$df = tibble::tibble()
     ssh_exec_wait(sshSession, command = paste0(dir,'/boxtransferauto.sh'))
-    file.remove(file.path(dir,"importBoxMoves.xlsx"))
+    # file.remove(file.path(dir,"importBoxMoves.xlsx"))
     showNotification("completed")
   })
 
