@@ -11,14 +11,14 @@ library(rio)
 library(ssh)
 library(DBI)
 library(dbplyr)
+library(RMySQL)
 
-con = dbConnect(odbc::odbc(),
-                Driver = "MySQL ODBC 8.1 ANSI Driver",
-                Server = "10.126.24.122",
-                Database = "ca",
-                UID = Sys.getenv("uid"),
-                PWD = Sys.getenv("pwd"),
-                Port = 3306
+con = dbConnect(MySQL(),
+                host = "10.126.24.122",
+                dbname = "ca",
+                user = Sys.getenv("uid"),
+                password = Sys.getenv("pwd"),
+                port = 3306
                 )
 
 dir = "/mnt/storage/public"
