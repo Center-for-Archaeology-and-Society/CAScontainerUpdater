@@ -30,7 +30,7 @@ safeSaveRDS = function(object,file){
     try(saveRDS(object,file))
   } else {
     if (Sys.info()["sysname"] == "Linux") {
-      tryCatch(ssh_exec_wait(sshSession, command = glue::glue('sudo chmod +777 {file}')),error = function(e) warning(glue::glue("unable to save {file}")))
+      tryCatch(ssh_exec_wait(sshSession, command = glue::glue('sudo -S {Sys.getenv("pwd")} chmod +777 {file}')),error = function(e) warning(glue::glue("unable to save {file}")))
     }
     try(saveRDS(object,file))
   }
@@ -41,7 +41,7 @@ safeImport = function(file, ...){
     object = tryCatch(rio::import(file, setclass = 'tibble', ...), error =  function(e) return(NULL))
   } else {
     if (Sys.info()["sysname"] == "Linux") {
-      tryCatch(system(glue::glue("sudo chown shiny {file}")),error = function(e) {
+      tryCatch(ssh_exec_wait(sshSession, command = glue::glue('sudo -S {Sys.getenv("pwd")} chmod +777 {file}')),error = function(e) {
         warning(glue::glue("unable to read {file}"))
         return(NULL)
       })
