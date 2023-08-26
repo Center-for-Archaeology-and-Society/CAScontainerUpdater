@@ -278,11 +278,12 @@ server <- function(input, output, session) {
 
   observeEvent(input$submit, {
     showNotification("submitting batch")
-
-    safeSaveRDS(rvals$df,file.path(dir,"importBoxMoves.xlsx"))
+    tmpdir = tempdir()
+    rio::export(rvals$df,file.path(tmpdir,"importBoxMoves.xlsx"))
+    ssh::scp_upload(session = sshSession,files = file.path(tmpdir,"importBoxMoves.xlsx"),to = file.path(dir,"importBoxMoves.xlsx"))
     rvals$df = tibble::tibble()
     ssh_exec_wait(sshSession, command = paste0(dir,'/boxtransferauto.sh'))
-    # file.remove(file.path(dir,"importBoxMoves.xlsx"))
+    file.remove(file.path(tmpdir,"importBoxMoves.xlsx"))
     showNotification("completed")
   })
 
