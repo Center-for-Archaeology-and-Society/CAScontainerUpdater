@@ -120,7 +120,7 @@ tabPanel("main",
            fluidRow(
              column(width = 2,textInput("barcode","barcode")),
              column(width = 2,textInput("idno","idno")),
-             column(width = 2,selectInput("building","building",choices = c("",buildings$fullBuilding) %>% setNames(c("",buildings$building)))),
+             column(width = 2,selectInput("building","building",choices = c("",buildings$building) %>% setNames(c("",buildings$fullBuilding)))),
              column(width = 2,textInput("room","room")),
              column(width = 1,textInput("row","row")),
              column(width = 1,textInput("unit","unit")),
@@ -139,6 +139,9 @@ tabPanel("main",
          fluidRow(column(width = 3,wellPanel(actionButton("deleteRow","Delete selection")))),
          DT::DTOutput(outputId = "table"),
          actionButton(inputId = "submit",label = "submit batch")
+),
+tabPanel(title = "storage locations",value = "storageLocations",
+         DT::DTOutput(outputId = "storageTable")
 )
 )
 server <- function(input, output, session) {
@@ -299,6 +302,10 @@ server <- function(input, output, session) {
       rvals$df <- tryCatch(rvals$df %>%
                              slice(-indx),error = function(e) return(rvals$df))
     }
+  })
+
+  output$storageTable = DT::renderDT({
+    DT::datatable(rvals$storageLocations, rownames = F,filter = "top")
   })
 }
 
