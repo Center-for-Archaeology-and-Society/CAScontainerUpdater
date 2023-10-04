@@ -30,7 +30,11 @@ safeSaveRDS = function(object,file){
     try(saveRDS(object,file))
   } else {
     if (Sys.info()["sysname"] == "Linux") {
-      tryCatch(ssh_exec_wait(sshSession, command = glue::glue('sudo -S {Sys.getenv("pwd")} chmod +777 {file}')),error = function(e) warning(glue::glue("unable to save {file}")))
+      tryCatch(ssh_exec_wait(sshSession, command = glue::glue('sudo -S {Sys.getenv("pwd")} chmod +777 {file}')),error = function(e) {
+        msg = glue::glue("unable to save {file}: {e}")
+        warning(msg)
+        showNotification(msg, type = 'warning')
+        })
     }
     try(saveRDS(object,file))
   }
@@ -42,12 +46,16 @@ safeImport = function(file, ...){
   } else {
     if (Sys.info()["sysname"] == "Linux") {
       tryCatch(ssh_exec_wait(sshSession, command = glue::glue('sudo -S {Sys.getenv("pwd")} chmod +777 {file}')),error = function(e) {
-        warning(glue::glue("unable to read {file}"))
+        msg = glue::glue("unable to read {file}: {e}")
+        warning(msg)
+        showNotification(msg, type = 'warning')
         return(NULL)
       })
     }
     object = tryCatch(rio::import(file, setclass = 'tibble' ,...), error =  function(e) {
-      warning(glue::glue("unable to read {file}"))
+      msg = glue::glue("unable to read {file}: {e}")
+      warning(msg)
+      showNotification(msg, type = 'warning')
       return(NULL)
     })
   }
@@ -286,6 +294,7 @@ server <- function(input, output, session) {
     ssh::scp_upload(session = sshSession,files = file.path(tmpdir,"importBoxMoves.xlsx"),to = file.path(dir,"importBoxMoves.xlsx"))
     rvals$df = tibble::tibble()
     ssh_exec_wait(sshSession, command = paste0(dir,'/boxtransferauto.sh'))
+    ssh_exec_wait(sshSession, command = paste0('mv ',dir,'/importBoxMoves.xlsx', ' ',dir,'/archives/importBoxMoves-',strftime(Sys.time(), format = "%Y-%m-%d-%H-%M-%OS3"),'.xlsx'))
     file.remove(file.path(tmpdir,"importBoxMoves.xlsx"))
     showNotification("completed")
   })
@@ -300,7 +309,11 @@ server <- function(input, output, session) {
 
     if(length(indx) > 0){
       rvals$df <- tryCatch(rvals$df %>%
-                             slice(-indx),error = function(e) return(rvals$df))
+                             slice(-indx),error = function(e) {
+                               warning(e)
+                               showNotification(e, type = 'warning')
+                               return(rvals$df)
+                               })
     }
   })
 
