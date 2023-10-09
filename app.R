@@ -278,7 +278,7 @@ server <- function(input, output, session) {
       tibble::add_column(!!!requiredCols[!names(requiredCols) %in% names(.)])
     print(inputdf)
     print(dput(inputdf))
-    if('barcode' %in% names(inputdf) || idno %in% names(inputdf)){
+    if('barcode' %in% names(inputdf) || 'idno' %in% names(inputdf)){
       inputdf %<>%
         dplyr::select(-any_of('building'))
     }
