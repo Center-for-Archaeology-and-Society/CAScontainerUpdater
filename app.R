@@ -103,8 +103,6 @@ idno2storage = function(df){
   return(df)
 }
 
-buildings = dplyr::tibble(building = c("Ala", "CSB", "MC", "MH"), fullBuilding = c("Alameda",
-                                                                                   "CSB", "MC", "MH"))
 ui <- navbarPage(
   title = "CASR Box Updater",
 
@@ -128,7 +126,7 @@ tabPanel("main",
            fluidRow(
              column(width = 2,textInput("barcode","barcode")),
              column(width = 2,textInput("idno","idno")),
-             column(width = 2,selectInput("building","building",choices = c("",buildings$building) %>% setNames(c("",buildings$fullBuilding)))),
+             column(width = 2,uiOutput('buildingUI')),
              column(width = 2,textInput("room","room")),
              column(width = 1,textInput("row","row")),
              column(width = 1,textInput("unit","unit")),
@@ -252,6 +250,10 @@ server <- function(input, output, session) {
     updateTextInput(session = session,inputId = "person",value = credentials()$info$name)
   })
 
+  output$buildingUI = renderUI({
+    selectInput("building","building",choices = rvals$storageLocations$building %>% unique %>% sort)
+  })
+
   observeEvent(input$add,{
     req(input$type)
     requiredCols = c("purpose" = NA_character_,"person" = NA_character_,"date" = NA_character_)
@@ -276,6 +278,10 @@ server <- function(input, output, session) {
       tibble::add_column(!!!requiredCols[!names(requiredCols) %in% names(.)])
     print(inputdf)
     print(dput(inputdf))
+    if('barcode' %in% names(inputdf) || idno %in% names(inputdf)){
+      inputdf %<>%
+        dplyr::select(-any_of('building'))
+    }
     inputdf %<>%
       inner_join(
         rvals$storageLocations
