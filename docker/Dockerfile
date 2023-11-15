@@ -1,6 +1,6 @@
 FROM rocker/shiny-verse:4.3.1
 
-LABEL description="This is the docker container for Archaeodash"
+LABEL description="This is the docker container for the box app"
 
 RUN apt-get update
 
