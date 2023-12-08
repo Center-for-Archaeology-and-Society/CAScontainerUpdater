@@ -1,10 +1,10 @@
 # This file allows packrat (used by rsconnect during deployment) to pick up dependencies.
+library(bslib)
 library(DBI)
 library(dbplyr)
 library(dplyr)
 library(DT)
 library(janitor)
-library(jsonlite)
 library(magrittr)
 library(readr)
 library(readxl)
