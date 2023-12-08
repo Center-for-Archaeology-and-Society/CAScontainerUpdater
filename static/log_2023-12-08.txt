@@ -1,0 +1,4 @@
+2023-12-08 8:32:34 - INFO --> Started import of /mnt/storage/public/importBoxMoves.xlsx using mapping boxtransferauto
+2023-12-08 8:32:34 - INFO --> [T-test] Merged with existing record matched on identifer T-test by policy merge_on_idno_with_replace
+2023-12-08 8:32:35 - INFO --> [T-test] Imported T-test as ca_collections 
+2023-12-08 8:32:35 - INFO --> Import of /mnt/storage/public/importBoxMoves.xlsx completed using mapping boxtransferauto: 1 imported/0 skipped/0 errors
