@@ -31,4 +31,7 @@ RUN install2.r --error --skipinstalled \
 	ssh \
 	DBI \
 	dbplyr \
-	RMySQL
+	RMySQL \
+	rhino \
+	renv
+
