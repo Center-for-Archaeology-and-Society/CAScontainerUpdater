@@ -1,6 +1,6 @@
-FROM rocker/shiny-verse:4.3.1
+FROM rocker/shiny-verse:4.3.2
 
-LABEL description="This is the docker container for Archaeodash"
+LABEL description="This is the docker container for boxes"
 
 RUN apt-get update
 
@@ -32,6 +32,14 @@ RUN install2.r --error --skipinstalled \
 	DBI \
 	dbplyr \
 	RMySQL \
-	rhino \
+	remotes \
 	renv
+
+RUN R -e 'remotes::install_github("Appsilon/rhino")'
+
+WORKDIR /srv/shiny-server
+
+COPY . . 
+
+RUN R -e 'renv::deactivate()'
 
