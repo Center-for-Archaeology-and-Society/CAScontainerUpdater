@@ -22,7 +22,7 @@ RUN install2.r --error --skipinstalled \
 	rio \
 	shiny \
 	shinyjs \
-	janitor \ 
+	janitor \
 	devtools \
 	tidyr \
 	stringr \
@@ -32,5 +32,3 @@ RUN install2.r --error --skipinstalled \
 	DBI \
 	dbplyr \
 	RMySQL
-    
-
