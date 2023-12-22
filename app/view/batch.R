@@ -4,7 +4,7 @@ box::use(
   shiny[tabPanel, h3, p, fileInput, actionButton,NS,moduleServer,observeEvent,fluidRow,column,wellPanel,h4,uiOutput,renderUI,HTML,req],
   DT[DTOutput,renderDT,datatable],
   ssh[ssh_exec_wait],
-  dplyr[inner_join, select, bind_rows, distinct_all,mutate_all,filter],
+  dplyr[inner_join, select, bind_rows, distinct_all,mutate_all,filter,rowwise,mutate,ungroup],
   readxl[read_xlsx],
   tibble[as_tibble,add_column],
   tidyselect[any_of],
@@ -57,7 +57,7 @@ server = function(id,sshSession,rvals,dir){
                              mutate_all(as.character) %>%
                              inner_join(rvals$storageLocations),
                            error = function(e) {
-                             myNotification("error in join")
+                             myNotification(paste("error in join:",e))
                              return(NULL)
                            }
         )
@@ -65,13 +65,14 @@ server = function(id,sshSession,rvals,dir){
         barcode = NULL
       }
       if('idno' %in% names(rvals$df)){
+        print(rvals$df)
         idno = tryCatch(rvals$df %>%
                           filter(!is.na(idno)) %>%
                           select(any_of(c('boxno', 'idno','person', 'relation', 'purpose', 'date'))) %>%
                           mutate_all(as.character) %>%
                           inner_join(rvals$storageLocations),
                         error = function(e) {
-                          myNotification("error in join")
+                          myNotification(paste("error in join:",e))
                           return(NULL)
                         }
         )
@@ -85,7 +86,7 @@ server = function(id,sshSession,rvals,dir){
                           mutate_all(as.character) %>%
                           inner_join(rvals$storageLocations),
                         error = function(e) {
-                          myNotification("error in join")
+                          myNotification(paste("error in join:",e))
                           return(NULL)
                         }
         )
@@ -94,7 +95,10 @@ server = function(id,sshSession,rvals,dir){
       }
       rvals$df = tryCatch(
         bind_rows(barcode, idno, building) %>%
-          chop(barcode),
+          chop(barcode) %>%
+          rowwise() %>%
+          mutate(barcode = unlist(barcode) %>% unique %>% paste(barcode, collapse = ";")) %>%
+          ungroup(),
         error = function(e) {
           myNotification("error in join")
           return(NULL)
