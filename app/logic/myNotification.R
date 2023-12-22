@@ -5,7 +5,6 @@ box::use(
 )
 
 #' @export
-
 myNotification = function(msg, type = 'default') {
   if (type %in% c("warning", "error")) {
     warning(msg)
